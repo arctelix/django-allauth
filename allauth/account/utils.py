@@ -186,7 +186,9 @@ def setup_user_email(request, user):
     #make sure there is a primary email
     if len(emails) == 1 and not primary_email_object:
         emails[0]['primary'] = True
-    if len(mails) == 0:
+
+    if len(emails) == 0:
+
         return
 
     for e in emails:
