@@ -159,10 +159,7 @@ class SocialLogin(object):
         if (user.email 
             and (user.email.lower() not in [e.email.lower() 
                                             for e in self.email_addresses])):
-            # Check for emial verification outside allauth scope (ie: invitation acceptance)
-            
-            print '-------------------social model appending email to email_addresses'
-            
+
             # ... so let's append it
             self.email_addresses.append(EmailAddress(user=user,
                                                      email=user.email,

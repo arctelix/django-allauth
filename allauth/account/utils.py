@@ -127,6 +127,8 @@ def get_primary_email(user):
     
 def setup_user_email(request, user):
     from models import EmailAddress
+    from django import forms
+    from allauth.exceptions  import ImmediateHttpResponse
     """
     Creates proper EmailAddress for the user that was just signed
     up. Only sets up, doesn't do any other handling such as sending
@@ -190,13 +192,21 @@ def setup_user_email(request, user):
     if len(emails) == 0:
 
         return
-
+    from django.db import models, IntegrityError
     for e in emails:
         print 'saving email: ', e
-        email_address = EmailAddress.objects.create(user=user,
-                                                    email=e['email'],
-                                                    verified=e['verified'],
-                                                    primary=e['primary'])
+       
+        try:
+            print 'saving'
+            email_address = EmailAddress.objects.create(user=user,
+                                                        email=e['email'],
+                                                        verified=e['verified'],
+                                                        primary=e['primary'])
+        
+        # if the third party email already exists it will be discarded.
+        except IntegrityError:
+            pass
+       
     return email_address
 
 def send_email_confirmation(request, user, email_address=None):
