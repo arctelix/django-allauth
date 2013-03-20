@@ -116,24 +116,85 @@ def complete_signup(request, user, success_url, signal_kwargs={}):
     return perform_login(request, user, redirect_url=success_url)
 
 
+def get_primary_email(user):
+    from models import EmailAddress
+    try:
+        primary_email = EmailAddress.objects.get(user=user, primary=True)
+        return primary_email
+    except EmailAddress.DoesNotExist:
+        return False
+    
+    
 def setup_user_email(request, user):
+    from models import EmailAddress
     """
     Creates proper EmailAddress for the user that was just signed
     up. Only sets up, doesn't do any other handling such as sending
     out email confirmation mails etc.
     """
-    from models import EmailAddress
-
-    assert EmailAddress.objects.filter(user=user).count() == 0
-    if not user.email:
-        return
+    print '---setup_user_email ---',
+    
+    user_email = user.email
+    #check for verified email
     adapter = get_adapter()
-    is_verified = adapter.is_email_verified(request, user.email)
-    adapter.stash_email_verified(request, None)
-    email_address = EmailAddress.objects.create(user=user,
-                                                email=user.email,
-                                                verified=is_verified,
-                                                primary=True)
+    verified_email = adapter.is_email_verified(request)
+
+    # check if the new user already has a primary email saved (from google?)
+    primary_email_object = get_primary_email(user)
+
+    print 'verified_email: ', verified_email
+    print 'primary_email: ', primary_email_object
+    print 'user_email: ', user.email
+    
+    emails = []
+    if verified_email:
+        emails.append({'email':verified_email, 'verified':True, 'primary':None})
+    # only append user.email if it is not the same as verified email
+    if user.email and user.email != verified_email:
+        print '--user emial not equal verified email'
+        emails.append({'email':user.email, 'verified':False, 'primary':None})
+    print 'emails: ', emails
+    
+    if primary_email_object:
+        emails = [ed for ed in emails if ed['email'] != primary_email_object.email]
+    
+    print 'unique emails: ', emails
+    
+    for e in emails:#TODO: make test for each email bovee
+        '''this section is not done '''
+
+        if primary_email_object and e['verified']:
+            # check if the primary email is verified
+            if primary_email_object.verified == True :
+                primary_state = False
+            elif primary_email_object.verified == False:
+                # if the primary_email_object is not varified and new_email is 
+                # the new_email becomes primary
+                primary_email_object.primary = False
+                print 'remove primary from primary_email: ', primary_email_object
+                primary_email_object.save()
+                primary_state = True
+                primary_email_object = False
+                # the primary_mail remains primary
+        #since there is no primary_email the new_email is.
+        else:
+            primary_state = True
+            primary_email_object = False
+        
+        e['primary']=primary_state
+    
+    #make sure there is a primary email
+    if len(emails) == 1 and not primary_email_object:
+        emails[0]['primary'] = True
+    if len(mails) == 0:
+        return
+
+    for e in emails:
+        print 'saving email: ', e
+        email_address = EmailAddress.objects.create(user=user,
+                                                    email=e['email'],
+                                                    verified=e['verified'],
+                                                    primary=e['primary'])
     return email_address
 
 def send_email_confirmation(request, user, email_address=None):

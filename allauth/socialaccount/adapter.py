@@ -18,7 +18,8 @@ class DefaultSocialAccountAdapter(object):
         e.g. the flow from within a signal handler is bad -- multiple
         handlers may be active and are executed in undetermined order.
         """
-        pass
+        print '-----------------pre_social_login---------------------'
+        return sociallogin
 
 
     def populate_new_user(self,

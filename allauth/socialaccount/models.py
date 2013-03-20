@@ -143,7 +143,7 @@ class SocialLogin(object):
         self.email_addresses = email_addresses
         self.state = {}
 
-    def save(self):
+    def save(self, request):
         user = self.account.user
         user.save()
         self.account.user = user
@@ -156,25 +156,18 @@ class SocialLogin(object):
     def _save_email_addresses(self):
         # user.email may not be listed as an EmailAddress ...
         user = self.account.user
-        try:
-            primary_email_address = EmailAddress.objects.get(user=user,
-                                                             primary=True)
-        except EmailAddress.DoesNotExist:
-            primary_email_address = None
-
-
         if (user.email 
             and (user.email.lower() not in [e.email.lower() 
                                             for e in self.email_addresses])):
+            # Check for emial verification outside allauth scope (ie: invitation acceptance)
+            
+            print '-------------------social model appending email to email_addresses'
+            
             # ... so let's append it
-            email_address = EmailAddress(user=user,
-                                         email=user.email,
-                                         verified=False,
-                                         primary=(not primary_email_address))
-            if not primary_email_address:
-                primary_email_address = email_address
-            self.email_addresses.append(email_address)
-
+            self.email_addresses.append(EmailAddress(user=user,
+                                                     email=user.email,
+                                                     verified=False,
+                                                     primary=True))
         for email_address in self.email_addresses:
             # Pick up only valid ones...
             email = valid_email_or_none(email_address.email)
@@ -184,18 +177,8 @@ class SocialLogin(object):
             if (account_settings.UNIQUE_EMAIL 
                 and EmailAddress.objects.filter(email__iexact=email).exists()):
                 continue
-            if email_address.primary:
-                if not primary_email_address:
-                    primary_email_address = email_address
-                else:
-                    email_address.primary = False
-
             email_address.user = user
             email_address.save()
-
-        if primary_email_address.email.lower() != user.email.lower():
-            user.email = primary_email_address.email
-            user.save()
 
     @property
     def is_existing(self):

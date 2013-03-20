@@ -9,11 +9,10 @@ from django.template.defaultfilters import slugify
 from allauth.utils import (generate_unique_username, email_address_exists,
                            get_user_model)
 from allauth.account.utils import send_email_confirmation, \
-    perform_login, complete_signup
+    perform_login, complete_signup, setup_user_email
 from allauth.account import app_settings as account_settings
 from allauth.account.adapter import get_adapter as get_account_adapter
 from allauth.exceptions import ImmediateHttpResponse
-
 from models import SocialLogin
 import app_settings
 import signals
@@ -67,10 +66,23 @@ def _process_signup(request, sociallogin):
             [0:User._meta.get_field('last_name').max_length]
         u.first_name = (u.first_name or '') \
             [0:User._meta.get_field('first_name').max_length]
-        u.email = email or ''
         u.set_unusable_password()
-        sociallogin.save()
-        send_email_confirmation(request, u)
+        
+        print '--------socilal helper------'
+        # do not save u.email untill it is set up properly
+        email_to_setup = u.email
+        u.email = ''
+        sociallogin.save(request)
+        # reassign email_to_setup to user
+        u.email = email_to_setup
+        # check if emmail has been verified outside of allauth scope.
+        # perhapse by acceptance of an mail invitation.
+        email_address = setup_user_email(request, u)
+        if email_address:
+            email_address.for_new_user = True
+        send_email_confirmation(request, u, email_address=email_address)
+
+        #send_email_confirmation(request, u)
         ret = complete_social_signup(request, sociallogin)
     return ret
 
@@ -120,7 +132,7 @@ def complete_social_login(request, sociallogin):
         else:
             # New social account
             sociallogin.account.user = request.user
-            sociallogin.save()
+            sociallogin.save(request)
             default_next = reverse('socialaccount_connections')
             next = sociallogin.get_redirect_url(request,
                                                 fallback=default_next)
